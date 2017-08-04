@@ -8,7 +8,6 @@
 local CrossingEasy, parent = torch.class('CrossingEasy', 'Traffic')
 
 function CrossingEasy:__init(opts, vocab)
-    print("opts", opts)
     parent.__init(self, opts, vocab)
 end
 
@@ -39,6 +38,8 @@ function CrossingEasy:build_roads()
     table.insert(self.dest_locs, {y = self.length + 1, x = self.map.width})
 
     local r
+
+    -- From top to bottom
     r = {}
     for i = 1, self.map.height do
         table.insert(r, {y = i, x = self.length + 1})
@@ -46,6 +47,7 @@ function CrossingEasy:build_roads()
     table.insert(self.routes, r)
     table.insert(self.source_locs[1].routes, #self.routes)
 
+    -- From left to right
     r = {}
     for i = 1, self.map.width do
         table.insert(r, {y = self.length + 1, x = i})
@@ -53,6 +55,7 @@ function CrossingEasy:build_roads()
     table.insert(self.routes, r)
     table.insert(self.source_locs[2].routes, #self.routes)
 
+    -- From top or bottom to middle, then to right
     r = {}
     for i = 1, self.length+1 do
         table.insert(r, {y = i, x = self.length + 1})
@@ -63,6 +66,7 @@ function CrossingEasy:build_roads()
     table.insert(self.routes, r)
     table.insert(self.source_locs[1].routes, #self.routes)
 
+    -- From left or right to middle, then to bottom
     r = {}
     for i = 1, self.length+1 do
         table.insert(r, {y = self.length + 1, x = i})

@@ -39,6 +39,8 @@ local function init_game_opts()
     helpers.CrossingEasy = OptsHelper
     games.CrossingHard = CrossingHard
     helpers.CrossingHard = OptsHelper
+    games.CrossingAdapted = CrossingAdapted
+    helpers.CrossingAdapted = OptsHelper
     games.CombatGame = CombatGame
     helpers.CombatGame = CombatGameFactory
 
@@ -85,7 +87,7 @@ function g_init_vocab()
     -- game specific
     if g_factory.games then
         if g_factory.games['Crossing'] or g_factory.games['CrossingEasy']
-            or g_factory.games['CrossingHard'] then
+            or g_factory.games['CrossingHard'] or g_factory.games['CrossingAdapted'] then
             vocab_add('block')
             for i = 1, 12 do
                 vocab_add('route' .. i)
