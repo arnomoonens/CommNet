@@ -128,6 +128,7 @@ function g_build_model()
     local action = linear_multi(g_opts.hidsz, g_opts.nactions, model_ids, hidstate)
     local action_prob = nn.LogSoftMax()(action)
     local baseline = linear_multi(g_opts.hidsz, 1, model_ids, hidstate)
+
     table.insert(out_mods, action_prob)
     g_model_outputs['action_prob'] = #out_mods
     table.insert(out_mods, baseline)
@@ -139,7 +140,7 @@ function g_build_model()
         local comm_out
         if g_opts.fully_connected then
             -- use different params depending on agent ID
-            comm_out =  linear_multi(g_opts.hidsz, g_opts.hidsz * g_opts.nagents, model_ids, hidstate)            
+            comm_out =  linear_multi(g_opts.hidsz, g_opts.hidsz * g_opts.nagents, model_ids, hidstate)
         else
             comm_out = hidstate
             if g_opts.comm_decoder >= 1 then

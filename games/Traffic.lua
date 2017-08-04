@@ -2,14 +2,13 @@
 -- All rights reserved.
 --
 -- This source code is licensed under the BSD-style license found in the
--- LICENSE file in the root directory of this source tree. An additional grant 
+-- LICENSE file in the root directory of this source tree. An additional grant
 -- of patent rights can be found in the PATENTS file in the same directory.
 
 local Traffic, parent = torch.class('Traffic', 'MazeBase')
 
 function Traffic:__init(opts, vocab)
     parent.__init(self, opts, vocab)
-
     self.add_rate = opts.add_rate
     self.add_block = opts.add_block
     self.max_agents = opts.max_agents
@@ -25,8 +24,8 @@ function Traffic:__init(opts, vocab)
     self.agents_inactive = {}
     self.agents_active = {}
     for i = 1, self.nagents do
-        local agent = self:place_item({type = 'agent', 
-            name = 'agent' .. i, _ascii = '@' .. i, _ind = i}, 1, 1)        
+        local agent = self:place_item({type = 'agent',
+            name = 'agent' .. i, _ascii = '@' .. i, _ind = i}, 1, 1)
         agent.attr._invisible = true
         local colors = {'red', 'green', 'yellow', 'blue', 'magenta', 'cyan'}
         agent.attr._ascii_color = { colors[torch.random(#colors)] }
@@ -97,14 +96,14 @@ function Traffic:add_agent()
             agent.loc.y = src.y
             agent.loc.x = src.x
             table.remove(self.agents_inactive, r)
-            agent.active = true        
+            agent.active = true
             agent.attr._invisible = false
             agent.t = 0
             agent.route = route
             agent.route_pos = 1
             agent.attr.route = 'route' .. ri
             self.map:add_item(agent)
-            table.insert(self.agents_active, agent)        
+            table.insert(self.agents_active, agent)
             -- agent.attr._ascii = agent.attr._ind .. ri
             agent.attr._ascii = '<>'
         end
@@ -125,6 +124,7 @@ function Traffic:update()
         agent.t = agent.t + 1
 
         if #self.map.items[agent.loc.y][agent.loc.x] > 1 then
+            -- Another agent on this agent's tile => collision
             agent.attr._ascii0 = agent.attr._ascii0 or agent.attr._ascii
             agent.attr._ascii = 'XX'
             agent.ncollision = agent.ncollision + 0.5
@@ -154,7 +154,7 @@ end
 
 function Traffic:get_reward(is_last)
     local r = 0
-    r = r - self.agent.success_pass * self.costs.pass 
+    r = r - self.agent.success_pass * self.costs.pass
     r = r - self.agent.ncollision * self.costs.collision
     r = r - self.agent.t * self.costs.wait
     return r

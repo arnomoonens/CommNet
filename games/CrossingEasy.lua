@@ -2,12 +2,13 @@
 -- All rights reserved.
 --
 -- This source code is licensed under the BSD-style license found in the
--- LICENSE file in the root directory of this source tree. An additional grant 
+-- LICENSE file in the root directory of this source tree. An additional grant
 -- of patent rights can be found in the PATENTS file in the same directory.
 
 local CrossingEasy, parent = torch.class('CrossingEasy', 'Traffic')
 
 function CrossingEasy:__init(opts, vocab)
+    print("opts", opts)
     parent.__init(self, opts, vocab)
 end
 

@@ -15,6 +15,7 @@ paths.dofile('Traffic.lua')
 paths.dofile('Crossing.lua')
 paths.dofile('CrossingEasy.lua')
 paths.dofile('CrossingHard.lua')
+paths.dofile('CrossingAdapted.lua')
 
 -- for combat games
 paths.dofile('CombatAgent.lua')
