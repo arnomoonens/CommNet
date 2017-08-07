@@ -9,10 +9,11 @@ function CrossingAdapted:__init(opts, vocab)
 end
 
 function CrossingAdapted:add_agent()
-    for i, agent in pairs(self.agents_inactive) do
+    for i = 1,#self.agents_inactive do
         if #self.agents_active >= self.max_agents then
             return
         end
+        agent = self.agents_inactive[1]
         if torch.uniform() < self.add_rate then
             if #self.agents_inactive == 0 then
                 return
