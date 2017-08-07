@@ -364,8 +364,8 @@ end
 
 -- EVERYTHING ABOVE RUNS ON THREADS
 
-function train(N)
-    for n = 1, N do
+function train(nepochs)
+    for n = 1, nepochs do
         local ep = #g_log + 1
         if g_opts.curriculum_end > 0 then
             -- adjust curriculum

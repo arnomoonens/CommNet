@@ -8,6 +8,39 @@ function CrossingAdapted:__init(opts, vocab)
     parent.__init(self, opts, vocab)
 end
 
+function CrossingAdapted:add_agent()
+    for i, agent in pairs(self.agents_inactive) do
+        if #self.agents_active >= self.max_agents then
+            return
+        end
+        if torch.uniform() < self.add_rate then
+            if #self.agents_inactive == 0 then
+                return
+            end
+            local src = self.source_locs[agent.attr._ind]
+            local ri = src.routes[1]
+            local route = self.routes[ri]
+            if self.add_block and #self.map.items[src.y][src.x] > 0 then
+                return
+            end
+            self.map:remove_item(agent)
+            agent.loc.y = src.y
+            agent.loc.x = src.x
+            table.remove(self.agents_inactive, i)
+            agent.active = true
+            agent.attr._invisible = false
+            agent.t = 0
+            agent.route = route
+            agent.route_pos = 1
+            agent.attr.route = 'route' .. ri
+            self.map:add_item(agent)
+            table.insert(self.agents_active, agent)
+            -- agent.attr._ascii = agent.attr._ind .. ri
+            agent.attr._ascii = '<>'
+        end
+    end
+end
+
 function CrossingAdapted:build_roads()
     -- build crossing
     assert(self.map.height % 2 == 1)
