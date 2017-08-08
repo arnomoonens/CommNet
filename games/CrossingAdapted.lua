@@ -9,15 +9,18 @@ function CrossingAdapted:__init(opts, vocab)
 end
 
 function CrossingAdapted:add_agent()
-    for i = 1,#self.agents_inactive do
+    if  g_opts.simultaneous and #self.agents_inactive ~= 2 then
+        return
+    end
+    for i = 1, #self.agents_inactive do
         if #self.agents_active >= self.max_agents then
             return
         end
-        agent = self.agents_inactive[1]
         if torch.uniform() < self.add_rate then
             if #self.agents_inactive == 0 then
                 return
             end
+            agent = self.agents_inactive[1] -- Take first inactive agent
             local src = self.source_locs[agent.attr._ind]
             local ri = src.routes[1]
             local route = self.routes[ri]
@@ -27,7 +30,7 @@ function CrossingAdapted:add_agent()
             self.map:remove_item(agent)
             agent.loc.y = src.y
             agent.loc.x = src.x
-            table.remove(self.agents_inactive, i)
+            table.remove(self.agents_inactive, 1) -- Remove the agent we just activated from the list of inactive ones
             agent.active = true
             agent.attr._invisible = false
             agent.t = 0

@@ -98,6 +98,8 @@ cmd:option('--plot', false, 'plot average reward during training')
 cmd:option('--curriculum_sta', 0, 'start making harder after this many epochs')
 cmd:option('--curriculum_end', 0, 'when to make the game hardest')
 
+cmd:option('--simultaneous', false, "Introduce agents in the adapted crossing simultaneously")
+
 g_opts = cmd:parse(arg or {})
 
 if g_opts.plot then require'gnuplot' end
