@@ -1,11 +1,14 @@
 require('gnuplot')
 require('nn')
 grad = require 'autograd'
+grad.optimize(true)
 
 local n_time_slots = 10
 local n_units = 20
 local n_hid = 20
 -- timeslots = torch.Tensor{0,1, 4,6,2,1,1,4,1,0}
+
+local learning_rate = 0.001
 
 function random_slots_distribution()
     local rs = {}
@@ -16,7 +19,7 @@ function random_slots_distribution()
 end
 
 local min_units = 1
-local max_units = 10
+local max_units = 3
 
 do
     local Consumer = torch.class('Consumer')
@@ -33,15 +36,9 @@ do
            local units_distribution = self.modelf(params, prices)
            -- local units_distribution = torch.round(distribution * n_units)
            local to_pay = prices:view(-1) * units_distribution:view(-1)
-           local loss = 0
-           if g_opts.verbose then
-              print('to pay', to_pay.value)
-          end
+           local loss = to_pay
            local units_diff = torch.sum(units_distribution) - n_units
-           if g_opts.verbose then
-              print('units diff', units_diff.value)
-          end
-           loss = loss + units_diff
+           loss = loss + units_diff^2
            return loss
         end
         self.grad = grad(self.neuralNet, {optimize = true})
@@ -57,7 +54,7 @@ end
 function Consumer:improve(prices)
     grads, loss = self.grad(self.params, prices)
     for i = 1, #self.params do
-        self.params[i]:add(-0.01, grads[i])
+        self.params[i] = self.params[i] - learning_rate * grads[i]
     end
 end
 
@@ -79,7 +76,7 @@ do
            local too_low = -torch.sum(torch.cmin(usage, min_units) - min_units)
            local loss = (too_low + too_high)^2
            local profit = usage:view(-1) * prices:view(-1)
-           loss = loss -  0.1 * profit
+           loss = loss - 0.05 * profit
            return loss
         end
         self.grad = grad(self.neuralNet, {optimize = true})
@@ -92,15 +89,12 @@ end
 
 function DSO:improve(usage)
     grads, loss = self.grad(self.params, usage)
-    for i = 1, #self.params do
-        self.params[i]:add(-0.01, grads[i])
+    if g_opts.verbose then
+        print('loss', loss)
     end
-    -- function feval( params )
-    --     local outputs = self.mlp:forward(inputs)
-    --     local grad = torch.Tensor(n_time_slots * n_hid * n_time_slots):zero()
-    --     params, gradParams = mlp:getParameters()
-    -- end
-    -- optim.sgd()
+    for i = 1, #self.params do
+        self.params[i] = self.params[i] - learning_rate * grads[i]
+    end
 end
 
 do
@@ -112,14 +106,14 @@ do
         self.consumers_usages = torch.Tensor(n_consumers, n_time_slots)
         for i=1,n_consumers do
             self.consumers[i] = Consumer()
+            self.consumers[i].usage = random_slots_distribution()
             self.consumers_usages[i] = random_slots_distribution()
         end
         local agg_usage = torch.sum(self.consumers_usages, 1)
-        self.dso = DSO(agg_usage)
+        self.dso = DSO()
         self.results = {}
         for i = 1, #self.consumers do self.results[i] = {} end
         self.dso.prices = self.dso:calculate_preferences(agg_usage)
-        self.dso.prices:reshape(n_time_slots)
         self.dso_profits = {}
     end
 end
@@ -132,28 +126,27 @@ function Game:play()
     local consumers_usage = torch.Tensor(self.n_consumers, n_time_slots)
     -- Calculate how much units the consumers will use
     for i, consumer in pairs(self.consumers) do
-        local usage = consumer:calculate_preferences(self.dso.prices)
+        consumer.usage = consumer:calculate_preferences(self.dso.prices)
         if g_opts.verbose then
-            print('Consumer usage', usage)
+            print('Consumer usage', consumer.usage)
+            print('Total units', torch.sum(consumer.usage))
         end
-        consumers_usage[i] = usage
-        consumer.paid = usage:view(-1) * self.dso.prices:view(-1)
+        consumers_usage[i] = consumer.usage
+        consumer.paid = consumer.usage:view(-1) * self.dso.prices:view(-1)
     end
     local agg_usage = torch.sum(consumers_usage, 1)
+    if g_opts.verbose then
+        print('aggregated usage', agg_usage)
+    end
     self.dso.profit = agg_usage:view(-1) * self.dso.prices:view(-1)
      if g_opts.verbose then
         print('DSO profit', self.dso.profit)
     end
     -- Calculate how much the DSO will charge next
     self.dso.prices = self.dso:calculate_preferences(agg_usage)
-    self.dso.prices:reshape(n_time_slots)
     if g_opts.verbose then
         print('new DSO prices', self.dso.prices)
     end
-    -- print(self.dso.prices)
-    -- for i, consumer in pairs(self.consumers) do
-    --     consumer:improve(consumers_actions[i], r[i] + torch.uniform(-0.05,0.05))
-    -- end
     self.dso:improve(agg_usage)
     for _, consumer in pairs(self.consumers) do
         consumer:improve(self.dso.prices)
