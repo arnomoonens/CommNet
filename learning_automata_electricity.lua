@@ -59,6 +59,7 @@ end
 
 function Consumer:improve(prices, units_to_consume)
     grads, loss = self.grad(self.params, prices, units_to_consume)
+    self.loss = loss
     if g_opts.verbose then
         print('C' .. self.ind .. ' loss', loss)
     end
@@ -72,12 +73,12 @@ do
 
     function DSO:__init()
         -- local mlp = nn.Sequential()
-        l1 = nn.Linear(n_time_slots, n_hid)()
-        h1 = nn.Tanh()(l1) -- Each DSO only receives usage of its own energy
-        h2 = nn.Linear(n_hid, n_time_slots)(h1)
-        o = nn.Abs()(h2)
-        clamped = nn.Clamp(0, g_opts.dso_max_price)(o)
-        mlp = nn.gModule({l1}, {clamped})
+        local l1 = nn.Linear(n_time_slots, n_hid)()
+        local h1 = nn.Tanh()(l1) -- Each DSO only receives usage of its own energy
+        local h2 = nn.Linear(n_hid, n_time_slots)(h1)
+        local o = nn.Abs()(h2)
+        local clamped = nn.Clamp(0, g_opts.dso_max_price)(o)
+        local mlp = nn.gModule({l1}, {clamped})
         self.modelf, self.params = grad.functionalize(mlp)
 
         self.neuralNet = function(params, old_usage, resulting_usage)
@@ -87,7 +88,7 @@ do
            local too_low = -torch.sum(torch.cmin(resulting_usage, dso_min_units) - dso_min_units)
            local loss = (torch.sum(resulting_usage) - dso_units_to_consume)^2
            local profit = resulting_usage:view(-1) * prices:view(-1)
-           loss = loss - 0.001 * profit
+           loss = loss - 0.0005 * profit
            return loss
         end
         self.grad = grad(self.neuralNet, {optimize = true})
@@ -99,7 +100,8 @@ function DSO:calculate_preferences(input)
 end
 
 function DSO:improve(old_usage, resulting_usage)
-    grads, loss = self.grad(self.params, old_usage, resulting_usage)
+    local grads, loss = self.grad(self.params, old_usage, resulting_usage)
+    self.loss = loss
     for i = 1, #self.params do
         self.params[i] = self.params[i] - g_opts.dso_learning_rate * grads[i]
     end
@@ -130,15 +132,21 @@ do
         end
         self.paid_by_consumers = {}
         self.total_usage_by_consumer = {}
+        self.consumer_loss = {}
+        self.consumer_dso1_usage = {}
         for i = 1, #self.consumers do
             self.paid_by_consumers[i] = {}
             self.total_usage_by_consumer[i] = {}
+            self.consumer_loss[i] = {}
+            self.consumer_dso1_usage[i] = {}
         end
         self.dso_profits = {}
         self.prices = {}
+        self.dso_loss = {}
         for i = 1, #self.dsos do
             self.dso_profits[i] = {}
             self.prices[i] = {}
+            self.dso_loss[i] = {}
         end
     end
 end
@@ -167,6 +175,7 @@ function Game:play()
             print('C' .. i .. ' total units', torch.sum(consumer.usage))
         end
         consumers_usage[i] = consumer.usage
+        consumer.dso1_usage = torch.sum(consumer.usage:chunk(self.n_dsos, 2)[1])
         consumer.paid = consumer.usage:view(-1) * all_dso_prices:view(-1)
     end
     local agg_usage = torch.sum(consumers_usage, 1)
@@ -222,6 +231,31 @@ function Game:plot_results()
     gnuplot.ylabel('Total usage')
     gnuplot.plotflush()
 
+    -- Loss by consumer
+    local toplot = {}
+    for i, consumer in pairs(self.consumers) do
+        toplot[i] = {'Consumer' .. i, torch.Tensor(self.consumer_loss[i]), linetype}
+    end
+    gnuplot.pngfigure(g_opts.results_path .. '/consumer_loss.png')
+    gnuplot.title("Consumer loss per game")
+    gnuplot.plot(toplot)
+    gnuplot.xlabel('Game')
+    gnuplot.ylabel('Loss')
+    gnuplot.plotflush()
+
+    -- Consumer usage of DSO 1
+    local toplot = {}
+    for i, consumer in pairs(self.consumers) do
+        toplot[i] = {'Consumer' .. i, torch.Tensor(self.consumer_dso1_usage[i]), linetype}
+    end
+    gnuplot.pngfigure(g_opts.results_path .. '/consumer_dso1_usage.png')
+    gnuplot.title("Consumer usage of DSO1 per game")
+    gnuplot.plot(toplot)
+    gnuplot.xlabel('Game')
+    gnuplot.ylabel('Usage')
+    gnuplot.plotflush()
+
+
     -- Profit of DSOs
     gnuplot.pngfigure(g_opts.results_path .. '/dso_profit.png')
     gnuplot.title('DSO profit per game')
@@ -245,6 +279,18 @@ function Game:plot_results()
     gnuplot.xlabel('Game')
     gnuplot.ylabel('Price for timeslot 1')
     gnuplot.plotflush()
+
+    -- Loss of DSOs
+    gnuplot.pngfigure(g_opts.results_path .. '/dso_loss.png')
+    gnuplot.title('DSO loss per game')
+    toplot = {}
+    for i,dso in pairs(self.dsos) do
+        toplot[i] = {'DSO' .. i, torch.Tensor(self.dso_loss[i]), linetype}
+    end
+    gnuplot.plot(toplot)
+    gnuplot.xlabel('Game')
+    gnuplot.ylabel('Loss')
+    gnuplot.plotflush()
 end
 
 function Game:play_multiple(n)
@@ -254,10 +300,13 @@ function Game:play_multiple(n)
         for i, consumer in pairs(self.consumers) do
             self.paid_by_consumers[i][iteration] = consumer.paid
             self.total_usage_by_consumer[i][iteration] = consumer.total_usage
+            self.consumer_loss[i][iteration] = consumer.loss
+            self.consumer_dso1_usage[i][iteration] = consumer.dso1_usage
         end
         for i,dso in pairs(self.dsos) do
             self.dso_profits[i][iteration] = dso.profit
             self.prices[i][iteration] = dso.prices[1][1]
+            self.dso_loss[i][iteration] = dso.loss
         end
     end
     self:plot_results()
